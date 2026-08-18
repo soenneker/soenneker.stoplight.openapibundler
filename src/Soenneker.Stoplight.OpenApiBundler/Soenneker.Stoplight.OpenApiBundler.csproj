@@ -42,7 +42,7 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
-        <PackageReference Include="Soenneker.Utils.HttpClientCache" Version="4.0.2023" />
+        <PackageReference Include="Soenneker.Utils.HttpClientCache" Version="4.0.2024" />
         <PackageReference Include="YamlDotNet" Version="18.1.0" />
     </ItemGroup>
 </Project>
