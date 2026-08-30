@@ -68,11 +68,23 @@ public sealed class StoplightOpenApiBundler : IStoplightOpenApiBundler
             .ConfigureAwait(false);
 
         var stream = new YamlStream(new YamlDocument(bundledRootNode));
+        string temporaryOutputPath = $"{fullOutputFilePath}.{Guid.NewGuid():N}.tmp";
 
-        await using var writer = new StreamWriter(fullOutputFilePath, false, new UTF8Encoding(false));
-        stream.Save(writer, assignAnchors: false);
-        await writer.FlushAsync(cancellationToken)
-                    .ConfigureAwait(false);
+        try
+        {
+            await using (var writer = new StreamWriter(temporaryOutputPath, false, new UTF8Encoding(false)))
+            {
+                stream.Save(writer, assignAnchors: false);
+                await writer.FlushAsync(cancellationToken)
+                            .ConfigureAwait(false);
+            }
+
+            File.Move(temporaryOutputPath, fullOutputFilePath, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporaryOutputPath);
+        }
 
         _logger.LogInformation(
             "Completed Stoplight OpenAPI bundle to '{OutputFilePath}'. Nodes fetched: {FetchedNodeCount}, cache hits: {CacheHitCount}, external refs resolved: {ResolvedExternalRefCount}",
