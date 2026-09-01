@@ -45,5 +45,8 @@
         <PackageReference Include="Soenneker.Utils.HttpClientCache" Version="4.0.2051" />
         <PackageReference Include="Soenneker.Utils.File" Version="4.0.2246" />
         <PackageReference Include="YamlDotNet" Version="18.1.0" />
+        <PackageReference Include="Soenneker.Extensions.Task" Version="4.0.128" />
+        <PackageReference Include="Soenneker.Extensions.ValueTask" Version="4.0.120" />
+        <PackageReference Include="Soenneker.Extensions.HttpResponseMessage" Version="4.0.2469" />
     </ItemGroup>
 </Project>

@@ -1,3 +1,6 @@
+using Soenneker.Extensions.ValueTask;
+using Soenneker.Extensions.Task;
+using Soenneker.Extensions.HttpResponseMessage;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -59,17 +62,17 @@ public sealed class StoplightOpenApiBundler : IStoplightOpenApiBundler
         var resolutionStack = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         YamlNode rootNode = await GetOrParseYamlRootAsync(projectId, normalizedRootNodePath, cache, cancellationToken)
-            .ConfigureAwait(false);
+            .NoSync();
         YamlNode bundledRootNode = await ResolveExternalRefsAsync(rootNode, projectId, normalizedRootNodePath, cache, resolutionStack, cancellationToken)
-            .ConfigureAwait(false);
+            .NoSync();
 
         var stream = new YamlStream(new YamlDocument(bundledRootNode));
         await _fileUtil.WriteAtomically(fullOutputFilePath, async (output, ct) =>
         {
             using var writer = new StreamWriter(output, new UTF8Encoding(false), leaveOpen: true);
             stream.Save(writer, assignAnchors: false);
-            await writer.FlushAsync(ct).ConfigureAwait(false);
-        }, log: false, cancellationToken).ConfigureAwait(false);
+            await writer.FlushAsync(ct).NoSync();
+        }, log: false, cancellationToken).NoSync();
 
         _logger.LogInformation(
             "Completed Stoplight OpenAPI bundle to '{OutputFilePath}'. Nodes fetched: {FetchedNodeCount}, cache hits: {CacheHitCount}, external refs resolved: {ResolvedExternalRefCount}",
@@ -99,12 +102,12 @@ public sealed class StoplightOpenApiBundler : IStoplightOpenApiBundler
 
         using HttpRequestMessage request = new(HttpMethod.Get, requestUri);
         using HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                                                              .ConfigureAwait(false);
+                                                              .NoSync();
 
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccess(_logger, cancellationToken).NoSync();
 
         string payload = await response.Content.ReadAsStringAsync(cancellationToken)
-                                       .ConfigureAwait(false);
+                                       .NoSync();
         _fetchedNodeCount++;
 
         if (TryExtractEnvelopeContent(payload, out string? content) && !string.IsNullOrWhiteSpace(content))
@@ -397,7 +400,7 @@ public sealed class StoplightOpenApiBundler : IStoplightOpenApiBundler
                     {
                         YamlNode resolvedRefNode =
                             await ResolveReferencedNodeAsync(reference, projectId, currentNodePath, cache, resolutionStack, cancellationToken)
-                                .ConfigureAwait(false);
+                                .NoSync();
 
                         if (mappingNode.Children.Count == 1)
                             return resolvedRefNode;
@@ -419,7 +422,7 @@ public sealed class StoplightOpenApiBundler : IStoplightOpenApiBundler
 
                             mergedMapping.Children[CloneYamlNode(key)] =
                                 await ResolveExternalRefsAsync(value, projectId, currentNodePath, cache, resolutionStack, cancellationToken)
-                                    .ConfigureAwait(false);
+                                    .NoSync();
                         }
 
                         return mergedMapping;
@@ -436,7 +439,7 @@ public sealed class StoplightOpenApiBundler : IStoplightOpenApiBundler
                 {
                     resolvedMapping.Add(CloneYamlNode(key),
                         await ResolveExternalRefsAsync(value, projectId, currentNodePath, cache, resolutionStack, cancellationToken)
-                            .ConfigureAwait(false));
+                            .NoSync());
                 }
 
                 return resolvedMapping;
@@ -448,7 +451,7 @@ public sealed class StoplightOpenApiBundler : IStoplightOpenApiBundler
                 foreach (YamlNode child in sequenceNode.Children)
                 {
                     resolvedSequence.Add(await ResolveExternalRefsAsync(child, projectId, currentNodePath, cache, resolutionStack, cancellationToken)
-                        .ConfigureAwait(false));
+                        .NoSync());
                 }
 
                 return resolvedSequence;
@@ -467,11 +470,11 @@ public sealed class StoplightOpenApiBundler : IStoplightOpenApiBundler
         _logger.LogDebug("Resolved external ref '{Reference}' from '{CurrentNodePath}' to node '{ReferencedNodePath}' with fragment '{Fragment}'", reference,
             currentNodePath, referencedNodePath, fragment ?? "<none>");
         YamlNode referencedRootNode = await GetOrParseYamlRootAsync(projectId, referencedNodePath, cache, cancellationToken)
-            .ConfigureAwait(false);
+            .NoSync();
         YamlNode targetNode = string.IsNullOrWhiteSpace(fragment) ? referencedRootNode : ResolveJsonPointer(referencedRootNode, fragment!, referencedNodePath);
 
         return await ResolveExternalRefsAsync(targetNode, projectId, referencedNodePath, cache, resolutionStack, cancellationToken)
-            .ConfigureAwait(false);
+            .NoSync();
     }
 
     private async ValueTask<YamlNode> GetOrParseYamlRootAsync(string projectId, string nodePath, IDictionary<string, YamlNode> cache,
@@ -485,7 +488,7 @@ public sealed class StoplightOpenApiBundler : IStoplightOpenApiBundler
         }
 
         string yaml = await FetchNodeContentAsync(projectId, nodePath, cancellationToken)
-            .ConfigureAwait(false);
+            .NoSync();
         _logger.LogDebug("Parsing Stoplight node '{NodePath}'", nodePath);
         YamlNode parsedNode = ParseYamlRoot(yaml, nodePath);
         cache[nodePath] = CloneYamlNode(parsedNode);
