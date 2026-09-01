@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Soenneker.Stoplight.OpenApiBundler.Abstract;
 using Soenneker.Utils.HttpClientCache.Registrar;
+using Soenneker.Utils.File.Registrars;
 
 namespace Soenneker.Stoplight.OpenApiBundler.Registrars;
 
@@ -18,6 +19,7 @@ public static class StoplightOpenApiBundlerRegistrar
     public static IServiceCollection AddStoplightOpenApiBundlerAsSingleton(this IServiceCollection services)
     {
         services.AddHttpClientCacheAsSingleton()
+                .AddFileUtilAsSingleton()
                 .TryAddSingleton<IStoplightOpenApiBundler, StoplightOpenApiBundler>();
 
         return services;
@@ -31,6 +33,7 @@ public static class StoplightOpenApiBundlerRegistrar
     public static IServiceCollection AddStoplightOpenApiBundlerAsScoped(this IServiceCollection services)
     {
         services.AddHttpClientCacheAsSingleton()
+                .AddFileUtilAsScoped()
                 .TryAddScoped<IStoplightOpenApiBundler, StoplightOpenApiBundler>();
 
         return services;

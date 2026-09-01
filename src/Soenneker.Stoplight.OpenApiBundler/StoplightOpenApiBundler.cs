@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Soenneker.Stoplight.OpenApiBundler.Abstract;
 using Soenneker.Utils.HttpClientCache.Abstract;
+using Soenneker.Utils.File.Abstract;
 using YamlDotNet.RepresentationModel;
 
 namespace Soenneker.Stoplight.OpenApiBundler;
@@ -25,15 +26,17 @@ public sealed class StoplightOpenApiBundler : IStoplightOpenApiBundler
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<StoplightOpenApiBundler> _logger;
+    private readonly IFileUtil _fileUtil;
 
     private int _fetchedNodeCount;
     private int _cacheHitCount;
     private int _resolvedExternalRefCount;
 
-    public StoplightOpenApiBundler(IHttpClientCache httpClientCache, ILogger<StoplightOpenApiBundler> logger)
+    public StoplightOpenApiBundler(IHttpClientCache httpClientCache, ILogger<StoplightOpenApiBundler> logger, IFileUtil fileUtil)
     {
         _httpClient = httpClientCache.GetSync("stoplight");
         _logger = logger;
+        _fileUtil = fileUtil;
     }
 
     public async ValueTask<string> Bundle(string projectId, string rootNodePath, string outputFilePath, CancellationToken cancellationToken = default)
@@ -44,7 +47,6 @@ public sealed class StoplightOpenApiBundler : IStoplightOpenApiBundler
 
         string normalizedRootNodePath = NormalizeNodePath(rootNodePath);
         string fullOutputFilePath = Path.GetFullPath(outputFilePath);
-        string? outputDirectory = Path.GetDirectoryName(fullOutputFilePath);
 
         _fetchedNodeCount = 0;
         _cacheHitCount = 0;
@@ -52,12 +54,6 @@ public sealed class StoplightOpenApiBundler : IStoplightOpenApiBundler
 
         _logger.LogInformation("Starting Stoplight OpenAPI bundle for project '{ProjectId}' from '{RootNodePath}' to '{OutputFilePath}'", projectId,
             normalizedRootNodePath, fullOutputFilePath);
-
-        if (!string.IsNullOrWhiteSpace(outputDirectory))
-        {
-            Directory.CreateDirectory(outputDirectory);
-            _logger.LogDebug("Ensured bundle output directory exists: {OutputDirectory}", outputDirectory);
-        }
 
         var cache = new Dictionary<string, YamlNode>(StringComparer.OrdinalIgnoreCase);
         var resolutionStack = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -68,23 +64,12 @@ public sealed class StoplightOpenApiBundler : IStoplightOpenApiBundler
             .ConfigureAwait(false);
 
         var stream = new YamlStream(new YamlDocument(bundledRootNode));
-        string temporaryOutputPath = $"{fullOutputFilePath}.{Guid.NewGuid():N}.tmp";
-
-        try
+        await _fileUtil.WriteAtomically(fullOutputFilePath, async (output, ct) =>
         {
-            await using (var writer = new StreamWriter(temporaryOutputPath, false, new UTF8Encoding(false)))
-            {
-                stream.Save(writer, assignAnchors: false);
-                await writer.FlushAsync(cancellationToken)
-                            .ConfigureAwait(false);
-            }
-
-            File.Move(temporaryOutputPath, fullOutputFilePath, overwrite: true);
-        }
-        finally
-        {
-            File.Delete(temporaryOutputPath);
-        }
+            using var writer = new StreamWriter(output, new UTF8Encoding(false), leaveOpen: true);
+            stream.Save(writer, assignAnchors: false);
+            await writer.FlushAsync(ct).ConfigureAwait(false);
+        }, log: false, cancellationToken).ConfigureAwait(false);
 
         _logger.LogInformation(
             "Completed Stoplight OpenAPI bundle to '{OutputFilePath}'. Nodes fetched: {FetchedNodeCount}, cache hits: {CacheHitCount}, external refs resolved: {ResolvedExternalRefCount}",
