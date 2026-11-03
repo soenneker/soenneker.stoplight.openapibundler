@@ -44,8 +44,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Soenneker.Utils.HttpClientCache" Version="11.0.2142" />
+        <PackageReference Include="Soenneker.Utils.HttpClientCache" Version="11.0.2144" />
         <PackageReference Include="YamlDotNet" Version="18.1.0" />
-        <PackageReference Include="Soenneker.Extensions.HttpResponseMessage" Version="11.0.2640" />
+        <PackageReference Include="Soenneker.Extensions.HttpResponseMessage" Version="11.0.2641" />
     </ItemGroup>
 </Project>
