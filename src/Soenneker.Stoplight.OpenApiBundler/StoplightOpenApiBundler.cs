@@ -98,7 +98,8 @@ public sealed class StoplightOpenApiBundler : IStoplightOpenApiBundler
     {
         string requestUri = $"{_stoplightApiBase}{Uri.EscapeDataString(projectId)}/api-docs/nodes/{EscapeNodePathForUrl(nodePath)}";
 
-        _logger.LogDebug("Fetching Stoplight node '{NodePath}' from '{RequestUri}'", nodePath, requestUri);
+        if (_logger.IsEnabled(LogLevel.Debug))
+            _logger.LogDebug("Fetching Stoplight node '{NodePath}' from '{RequestUri}'", nodePath, requestUri);
 
         using HttpRequestMessage request = new(HttpMethod.Get, requestUri);
         using HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
@@ -394,7 +395,8 @@ public sealed class StoplightOpenApiBundler : IStoplightOpenApiBundler
                         throw new InvalidOperationException($"Circular external reference detected while bundling: {reference}");
                     }
 
-                    _logger.LogDebug("Resolving external ref '{Reference}' from node '{CurrentNodePath}'", reference, currentNodePath);
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                        _logger.LogDebug("Resolving external ref '{Reference}' from node '{CurrentNodePath}'", reference, currentNodePath);
 
                     try
                     {
@@ -483,13 +485,15 @@ public sealed class StoplightOpenApiBundler : IStoplightOpenApiBundler
         if (cache.TryGetValue(nodePath, out YamlNode? cachedNode))
         {
             _cacheHitCount++;
-            _logger.LogDebug("Using cached Stoplight node '{NodePath}'", nodePath);
+            if (_logger.IsEnabled(LogLevel.Debug))
+                _logger.LogDebug("Using cached Stoplight node '{NodePath}'", nodePath);
             return CloneYamlNode(cachedNode);
         }
 
         string yaml = await FetchNodeContentAsync(projectId, nodePath, cancellationToken)
             .NoSync();
-        _logger.LogDebug("Parsing Stoplight node '{NodePath}'", nodePath);
+        if (_logger.IsEnabled(LogLevel.Debug))
+            _logger.LogDebug("Parsing Stoplight node '{NodePath}'", nodePath);
         YamlNode parsedNode = ParseYamlRoot(yaml, nodePath);
         cache[nodePath] = CloneYamlNode(parsedNode);
         IReadOnlyList<string> refs = ExtractExternalRefs(yaml);
